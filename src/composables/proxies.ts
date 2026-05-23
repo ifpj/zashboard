@@ -14,6 +14,7 @@ import { isEmpty } from 'lodash'
 import { computed, ref } from 'vue'
 import {
   isProxyNodeSearchMode,
+  matchProxyGroupFilterProfile,
   matchProxySearchKeyword,
   proxyGroupContainsMatchingNode,
   proxyProviderContainsMatchingNode,
@@ -21,19 +22,23 @@ import {
 } from './proxySearch'
 
 const filterProxyGroups = (groups: string[], respectHiddenGroups = true) => {
-  if (!proxySearchKeyword.value) {
-    if (!respectHiddenGroups || manageHiddenGroup.value) {
-      return groups
-    }
+  let result = groups
 
-    return groups.filter((name) => !isHiddenGroup(name))
+  if (respectHiddenGroups && !manageHiddenGroup.value) {
+    result = result.filter((name) => !isHiddenGroup(name))
+  }
+
+  result = result.filter(matchProxyGroupFilterProfile)
+
+  if (!proxySearchKeyword.value) {
+    return result
   }
 
   const matchesGroup = isProxyNodeSearchMode.value
     ? proxyGroupContainsMatchingNode
     : (name: string) => matchProxySearchKeyword(name)
 
-  return groups.filter(matchesGroup)
+  return result.filter(matchesGroup)
 }
 
 const getRenderProxyGroups = () => {

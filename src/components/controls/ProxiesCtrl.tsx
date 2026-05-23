@@ -1,17 +1,25 @@
 import { disconnectByIdAPI, isSingBox, updateProxyProviderAPI } from '@/api'
 import { renderProxiesPageItems } from '@/composables/proxies'
-import { isProxyNodeSearchMode, toggleProxySearchMode } from '@/composables/proxySearch'
+import {
+  activeProxyGroupFilterProfile,
+  isProxyNodeSearchMode,
+  normalizedProxyGroupFilterProfiles,
+  toggleProxySearchMode,
+} from '@/composables/proxySearch'
 import { useCtrlsBar } from '@/composables/useCtrlsBar'
 import { PROXY_SORT_TYPE, PROXY_TAB_TYPE, ROUTE_NAME, SETTINGS_MENU_KEY } from '@/constant'
 import { getMinCardWidth } from '@/helper/utils'
 import { configs, updateConfigs } from '@/store/config'
 import { activeConnections } from '@/store/connections'
 import {
+  activeProxyGroupFilterId,
   allProxiesLatencyTest,
+  DEFAULT_PROXY_GROUP_FILTER_ID,
   fetchProxies,
   hasSmartGroup,
   proxiesFilter,
   proxiesTabShow,
+  proxyGroupFilterProfiles,
   proxyGroupList,
   proxyProviederList,
 } from '@/store/proxies'
@@ -35,7 +43,9 @@ import {
   ChevronDownIcon,
   ChevronUpIcon,
   GlobeAltIcon,
+  PlusIcon,
   RectangleGroupIcon,
+  TrashIcon,
   WrenchScrewdriverIcon,
 } from '@heroicons/vue/24/outline'
 import { every } from 'lodash'
@@ -54,6 +64,7 @@ export default defineComponent({
     const isUpgrading = ref(false)
     const isAllLatencyTesting = ref(false)
     const settingsModel = ref(false)
+    const groupFilterModel = ref(false)
     const { isLargeCtrlsBar } = useCtrlsBar()
     const handlerClickUpdateAllProviders = async () => {
       if (isUpgrading.value) return
@@ -117,6 +128,34 @@ export default defineComponent({
 
     const handlerResetProxyCardWidth = () => {
       minProxyCardWidth.value = getMinCardWidth(proxyCardSize.value)
+    }
+
+    const handlerAddGroupFilter = () => {
+      const id = `group-${Date.now()}`
+
+      proxyGroupFilterProfiles.value.push({
+        id,
+        name: `Group ${proxyGroupFilterProfiles.value.length}`,
+        include: '',
+        exclude: '',
+      })
+      activeProxyGroupFilterId.value = id
+    }
+
+    const handlerDeleteGroupFilter = () => {
+      if (activeProxyGroupFilterProfile.value.id === DEFAULT_PROXY_GROUP_FILTER_ID) {
+        return
+      }
+
+      proxyGroupFilterProfiles.value = proxyGroupFilterProfiles.value.filter(
+        (profile) => profile.id !== activeProxyGroupFilterProfile.value.id,
+      )
+      activeProxyGroupFilterId.value = DEFAULT_PROXY_GROUP_FILTER_ID
+    }
+
+    const handlerResetCurrentGroupFilter = () => {
+      activeProxyGroupFilterProfile.value.include = ''
+      activeProxyGroupFilterProfile.value.exclude = ''
     }
 
     const tabsWithNumbers = computed(() => {
@@ -251,6 +290,117 @@ export default defineComponent({
           />
         </div>
       )
+      const groupFilterSelect = proxiesTabShow.value === PROXY_TAB_TYPE.PROXIES && (
+        <>
+          <div class="join">
+            <select
+              class="select join-item select-sm w-24 max-sm:w-20"
+              value={activeProxyGroupFilterId.value}
+              onChange={(e) => {
+                activeProxyGroupFilterId.value = (e.target as HTMLSelectElement).value
+              }}
+            >
+              {normalizedProxyGroupFilterProfiles.value.map((profile) => (
+                <option
+                  key={profile.id}
+                  value={profile.id}
+                >
+                  {profile.id === DEFAULT_PROXY_GROUP_FILTER_ID ? '默认' : profile.name}
+                </option>
+              ))}
+            </select>
+            <button
+              class="btn join-item btn-sm"
+              title="配置分组过滤"
+              onClick={() => (groupFilterModel.value = true)}
+            >
+              <RectangleGroupIcon class="h-4 w-4" />
+            </button>
+          </div>
+          <DialogWrapper
+            v-model={groupFilterModel.value}
+            title="分组过滤"
+          >
+            <div class="flex flex-col gap-3 text-sm">
+              <div class="settings-grid">
+                <div class="setting-item">
+                  <div class="setting-item-label">分组名称</div>
+                  <input
+                    class="input input-sm w-44"
+                    value={
+                      activeProxyGroupFilterProfile.value.id === DEFAULT_PROXY_GROUP_FILTER_ID
+                        ? '默认'
+                        : activeProxyGroupFilterProfile.value.name
+                    }
+                    disabled={
+                      activeProxyGroupFilterProfile.value.id === DEFAULT_PROXY_GROUP_FILTER_ID
+                    }
+                    onInput={(e) => {
+                      activeProxyGroupFilterProfile.value.name = (
+                        e.target as HTMLInputElement
+                      ).value
+                    }}
+                  />
+                </div>
+                <div class="setting-item items-start py-3">
+                  <div class="setting-item-label pt-2">过滤</div>
+                  <textarea
+                    class="textarea textarea-sm h-20 w-44 resize-none"
+                    placeholder="HK US AI"
+                    value={activeProxyGroupFilterProfile.value.include}
+                    onInput={(e) => {
+                      activeProxyGroupFilterProfile.value.include = (
+                        e.target as HTMLTextAreaElement
+                      ).value
+                    }}
+                  />
+                </div>
+                <div class="setting-item items-start py-3">
+                  <div class="setting-item-label pt-2">排除</div>
+                  <textarea
+                    class="textarea textarea-sm h-20 w-44 resize-none"
+                    placeholder="Relay Test"
+                    value={activeProxyGroupFilterProfile.value.exclude}
+                    onInput={(e) => {
+                      activeProxyGroupFilterProfile.value.exclude = (
+                        e.target as HTMLTextAreaElement
+                      ).value
+                    }}
+                  />
+                </div>
+              </div>
+              <div class="text-base-content/60 px-1 text-xs">
+                多个规则可用空格、逗号或换行分隔，支持正则；过滤为空时显示全部，再应用排除。
+              </div>
+              <div class="flex gap-2">
+                <button
+                  class="btn btn-sm flex-1"
+                  onClick={handlerAddGroupFilter}
+                >
+                  <PlusIcon class="h-4 w-4" />
+                  新增
+                </button>
+                <button
+                  class="btn btn-sm flex-1"
+                  onClick={handlerResetCurrentGroupFilter}
+                >
+                  {t('reset')}
+                </button>
+                <button
+                  class="btn btn-error btn-sm flex-1"
+                  disabled={
+                    activeProxyGroupFilterProfile.value.id === DEFAULT_PROXY_GROUP_FILTER_ID
+                  }
+                  onClick={handlerDeleteGroupFilter}
+                >
+                  <TrashIcon class="h-4 w-4" />
+                  {t('delete')}
+                </button>
+              </div>
+            </div>
+          </DialogWrapper>
+        </>
+      )
 
       const settingsModal = (
         <>
@@ -374,6 +524,7 @@ export default defineComponent({
           <div class="flex w-full gap-2">
             {modeSelect}
             {searchInput}
+            {groupFilterSelect}
             {settingsModal}
             {toggleCollapseAll}
             {latencyTestAll}
@@ -384,6 +535,7 @@ export default defineComponent({
           {hasProviders.value && tabs}
           {modeSelect}
           <div class="flex flex-1">{searchInput}</div>
+          {groupFilterSelect}
           {upgradeAllIcon}
           {settingsModal}
           {toggleCollapseAll}

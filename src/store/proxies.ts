@@ -37,6 +37,30 @@ import {
 } from './settings'
 import { initSmartWeights } from './smart'
 
+export type ProxyGroupFilterProfile = {
+  id: string
+  name: string
+  include: string
+  exclude: string
+}
+
+export const DEFAULT_PROXY_GROUP_FILTER_ID = 'default'
+
+export const proxyGroupFilterProfiles = useStorage<ProxyGroupFilterProfile[]>(
+  'config/proxy-group-filter-profiles',
+  [
+    {
+      id: DEFAULT_PROXY_GROUP_FILTER_ID,
+      name: 'Default',
+      include: '',
+      exclude: '',
+    },
+  ],
+)
+export const activeProxyGroupFilterId = useStorage(
+  'config/active-proxy-group-filter-id',
+  DEFAULT_PROXY_GROUP_FILTER_ID,
+)
 export const proxiesFilter = ref('')
 export const proxiesTabShow = ref(PROXY_TAB_TYPE.PROXIES)
 
